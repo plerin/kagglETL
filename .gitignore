@@ -2,3 +2,6 @@
 __pycache__/
 
 airflow/creds/aws
+airflow/logs/*
+kaggle/kaggle.json
+kaggle/data/*
