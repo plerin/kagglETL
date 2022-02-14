@@ -2,7 +2,6 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 
 from datetime import datetime, timedelta
-
 import pendulum
 import logging
 import json

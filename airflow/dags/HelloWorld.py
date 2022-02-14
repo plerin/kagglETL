@@ -30,8 +30,8 @@ default_args = {
 with DAG(
     dag_id='first_dag',
     default_args=default_args,
-    start_date=datetime(2021, 1, 30, tzinfo=kst),
-    schedule_interval='0/5 * * * *',
+    start_date=datetime(2022, 2, 1, tzinfo=kst),
+    schedule_interval='*/1 * * * *',
     tags=['mine'],
     max_active_runs=1,
     concurrency=1,
