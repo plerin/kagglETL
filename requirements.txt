@@ -1,4 +1,5 @@
-pymongo
+kaggle
 pyspark
 boto3
 psycopg2-binary
+zip
