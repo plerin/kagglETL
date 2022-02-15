@@ -6,3 +6,4 @@ airflow/creds/aws
 airflow/logs/*
 kaggle/kaggle.json
 kaggle/data/*
+sparkFiles/data

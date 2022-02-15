@@ -19,6 +19,32 @@ import json
 from pathlib import Path
 import os
 
+
+'''
+ETL
+
+Extract
+- collect data(olympics) from kaggle api 
+- store into s3 _ origin data store in s3(datalake)
+
+Transform
+- call the task of bashoperator for processing data using pysparkSQL
+- write result data save in file format (where ? ) 
+- remove origin file
+
+Load
+- read data results in transform and load into s3
+- connect redshift 
+- copy from s3 to redshift
+- remove file
+
+extra
+1. connect slack when occurring error
+2. add task for making summary table 
+3. ...
+'''
+
+
 s3_config = Variable.get("aws_s3_config", deserialize_json=True)
 
 
@@ -27,46 +53,79 @@ def get_Redshift_connection():
     return hook.get_conn().cursor()
 
 
-def connect_s3(**context):
-    logging.info('[START_TASK]_connect_s3')
+def load_raw_data_into_s3(**context):
+    logging.info('[START_TASK]_load_raw_data_into_s3')
 
-    # setting s3
     hook = S3Hook()
     bucket = s3_config['bucket']
-    path = '/home/airflow/.kaggle/data'
-    # get data in local
+    path = '/opt/airflow/sparkFiles/data'
+
     for file_path in Path(path).glob("*.csv"):
         file_name = str(file_path).split('/')[-1]
-        # logging.info(file_path)
-        # logging.info(file_name)
-        hook.load_file(file_path, 'olympics/'+file_name,
+        hook.load_file(file_path, 'olympics/raw/'+file_name,
                        bucket_name=bucket, replace=True)
-    logging.info('[END_TASK]_connect_s3')
-    pass
+
+    logging.info('[END_TASK]_load_raw_data_into_s3')
 
 
-def connect_redshift(**context):
-    logging.info('[START_TASK]_connect_redshift')
+def load_process_data_into_s3(**context):
+    logging.info('[START_TASK]_load_process_data_into_s3')
 
-    cur = get_Redshift_connection()
-
-    # read by s3
     hook = S3Hook()
     bucket = s3_config['bucket']
-    data = []
-    for key in hook.list_keys(bucket, prefix='olympics/'):
-        logging.info(key)
+    path = '/opt/airflow/sparkFiles/data/olympics/results'
 
-        data.append(hook.read_key(key=key, bucket_name=bucket))
+    for file_path in Path(path).glob("*.csv"):
+        logging.info(file_path)
+        hook.load_file(file_path, 'olympics/process/results.csv',
+                       bucket_name=bucket, replace=True)
+        # file_name = str(file_path).split('/')[-1]
+        # hook.load_file(file_path, 'olympics/process/'+file_name,
+        #                bucket_name=bucket, replace=True)
 
-    for i in range(5):
-        logging.info(data[i])
-    logging.info(data[1][:100])
-    logging.info(data[2][:100])
-    # data = hook.read_key(key=key, bucket_name=bucket)
+    logging.info('[END_TASK]_load_process_data_into_s3')
 
-    logging.info('[END_TASK]_connect_redshift')
-    pass
+
+def load_into_redshift(**context):
+    logging.info('[START_TASK]_load_into_redshift')
+
+    # results = '/opt/airflow/sparkFiles/olympics/results.csv'
+
+    # load into s3
+    hook = S3Hook()
+    bucket = s3_config['bucket']
+    path = '/opt/airflow/sparkFiles/olympics/results'
+
+    for file_path in Path(path).glob("*.csv"):
+        logging.info(file_path)
+        hook.load_file(file_path, 'olympics/process/results.csv',
+                       bucket_name=bucket, replace=True)
+        # file_name = str(file_path).split('/')[-1]
+        # hook.load_file(file_path, 'olympics/process/'+file_name,
+        #                bucket_name=bucket, replace=True)
+
+    # copy from s3 to redshift
+    cur = get_Redshift_connection()
+
+    sql = f"""
+        COPY {schema}.{table}
+        FROM 's3://{s3_bucket}/{s3_key}'
+        with credentials
+        IGNOREHEADER 1
+    """
+    try:
+        cur.execute(sql)
+        cur.execute("COMMIT;")
+    except Exception as e:
+        cur.execute("ROLLBACK;")
+        raise AirflowException(e)
+    # conn.commit()
+    cur.close()
+
+    # remove file
+    # os.remove(results)
+
+    logging.info('[END_TASK]_load_into_redshift')
 
 
 kst = pendulum.timezone("Asia/Seoul")
@@ -90,40 +149,32 @@ with DAG(
 
     download_data = BashOperator(
         task_id='download_data',
-        bash_command='''cd /home/airflow/.kaggle/data;
+        bash_command='''cd /opt/airflow/sparkFiles/data;
         rm -rf ./*;
         kaggle datasets download -d heesoo37/120-years-of-olympic-history-athletes-and-results;
         unzip 120-years-of-olympic-history-athletes-and-results.zip
         '''
     )
 
-    connect_s3 = PythonOperator(
-        task_id='connect_s3',
-        python_callable=connect_s3
+    load_raw_data_into_s3 = PythonOperator(
+        task_id='load_raw_data_into_s3',
+        python_callable=load_raw_data_into_s3
     )
 
-    # connect_redshift = PythonOperator(
-    #     task_id='connect_redshift',
-    #     python_callable=connect_redshift
-    # )
-
-    s3_to_redshift_olympics_history = S3ToRedshiftOperator(
-        task_id="s3_to_redshift_olympics_history",
-        s3_bucket='kaggletl',
-        s3_key='olympics/athlete_events.csv',
-        schema='kaggle_data',
-        table='olympics_history',
-        copy_options=["csv"],
-        redshift_conn_id="redshift_dev_db",
-        primary_key="",
-        order_key="",
-        truncate_table=True
+    process_summary_table = BashOperator(
+        task_id='process_summary_table',
+        bash_command='python /opt/airflow/sparkFiles/test_spark.py'
     )
 
-    s3_to_redshift_olympics_regions = S3ToRedshiftOperator(
-        task_id="s3_to_redshift_olympics_regions",
+    load_process_data_into_s3 = PythonOperator(
+        task_id='load_process_data_into_s3',
+        python_callable=load_process_data_into_s3
+    )
+
+    copy_s3_to_redshift = S3ToRedshiftOperator(
+        task_id="copy_s3_to_redshift",
         s3_bucket='kaggletl',
-        s3_key='olympics/noc_regions.csv',
+        s3_key='olympics/process/results.csv',
         schema='kaggle_data',
         table='olympics_history_noc_regions',
         copy_options=["csv"],
@@ -133,6 +184,15 @@ with DAG(
         truncate_table=True
     )
 
-    download_data >> connect_s3 >> s3_to_redshift_olympics_history >> s3_to_redshift_olympics_regions
-    # download_data >> connect_s3 >> s3_to_redshift_olympics_regions
-    # s3_to_redshift_olympics_regions
+    endRun = DummyOperator(
+        task_id='endRun',
+        trigger_rule='none_failed_or_skipped'
+    )
+
+    download_data >> load_raw_data_into_s3
+    load_raw_data_into_s3 >> process_summary_table
+    process_summary_table >> load_process_data_into_s3
+    # load_process_data_into_s3
+    load_process_data_into_s3 >> copy_s3_to_redshift
+    copy_s3_to_redshift >> endRun
+    # copy_olympics_noc_regions >> endRun
