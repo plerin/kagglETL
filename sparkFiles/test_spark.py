@@ -1,12 +1,11 @@
 from pyspark.sql import SparkSession
-# import pyspark.sql.functions as F
-# from pyspark.sql.window import Window
-# from pyspark.sql.functions import lead, lag
-# import pyspark.sql.SaveMode as SaveMode
+
+from pathlib import Path
 import os
 
-event_path = '/opt/airflow/sparkFiles/data/athlete_events.csv'
-region_path = '/opt/airflow/sparkFiles/data/noc_regions.csv'
+input_data_path = '/opt/airflow/sparkFiles/data'
+event_path = input_data_path + '/athlete_events.csv'
+region_path = input_data_path + '/noc_regions.csv'
 
 spark = SparkSession \
     .builder \
@@ -25,11 +24,32 @@ df_region = spark.read.csv(region_path,
                            ignoreLeadingWhiteSpace=True,
                            ignoreTrailingWhiteSpace=True)
 
-df_region.coalesce(1)\
+df_event.createOrReplaceTempView("olympics_history")
+df_region.createOrReplaceTempView("olympics_history_noc_regions")
+
+
+korea_df = spark.sql('''
+    select 
+        sport,
+        count(case when medal='Gold' then 1 else NULL end) as gold ,
+        count(case when medal='Silver' then 1 else NULL end) as silver ,
+        count(case when medal='Bronze' then 1 else NULL end) as bronze,
+        count(case when medal <> 'NA' then 1 else NULL end) as total
+    from olympics_history as oh
+    join olympics_history_noc_regions as nr on nr.noc = oh.noc
+    where nr.noc = 'KOR'
+    group by 1;
+''')
+
+result_path = input_data_path + '/results'
+
+korea_df.coalesce(1)\
     .write.option("header", True)\
     .option('escape', '"')\
-    .csv('/opt/airflow/sparkFiles/data/olympics/results')
-# .mode(SaveMode.Overwrite)\
+    .mode('overwrite')\
+    .csv(result_path)
 
+for file_path in Path(input_data_path).glob("*.csv"):
+    os.remove(file_path)
 # delete the parsed data csv from the working directory
-# os.remove(parsedData)
+# os.rmdir(result_path)

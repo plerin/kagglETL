@@ -10,6 +10,7 @@ from airflow.hooks.postgres_hook import PostgresHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from plugins.s3_to_redshift_operator import S3ToRedshiftOperator
 
+from plugins.alert_by_slack import on_failure
 from datetime import datetime, timedelta
 
 import pendulum
@@ -18,7 +19,7 @@ import json
 # get files
 from pathlib import Path
 import os
-
+import shutil
 
 '''
 ETL
@@ -73,59 +74,15 @@ def load_process_data_into_s3(**context):
 
     hook = S3Hook()
     bucket = s3_config['bucket']
-    path = '/opt/airflow/sparkFiles/data/olympics/results'
+    result_path = '/opt/airflow/sparkFiles/data/results'
 
-    for file_path in Path(path).glob("*.csv"):
+    for file_path in Path(result_path).glob("*.csv"):
         logging.info(file_path)
         hook.load_file(file_path, 'olympics/process/results.csv',
                        bucket_name=bucket, replace=True)
-        # file_name = str(file_path).split('/')[-1]
-        # hook.load_file(file_path, 'olympics/process/'+file_name,
-        #                bucket_name=bucket, replace=True)
 
+    shutil.rmtree(result_path)
     logging.info('[END_TASK]_load_process_data_into_s3')
-
-
-def load_into_redshift(**context):
-    logging.info('[START_TASK]_load_into_redshift')
-
-    # results = '/opt/airflow/sparkFiles/olympics/results.csv'
-
-    # load into s3
-    hook = S3Hook()
-    bucket = s3_config['bucket']
-    path = '/opt/airflow/sparkFiles/olympics/results'
-
-    for file_path in Path(path).glob("*.csv"):
-        logging.info(file_path)
-        hook.load_file(file_path, 'olympics/process/results.csv',
-                       bucket_name=bucket, replace=True)
-        # file_name = str(file_path).split('/')[-1]
-        # hook.load_file(file_path, 'olympics/process/'+file_name,
-        #                bucket_name=bucket, replace=True)
-
-    # copy from s3 to redshift
-    cur = get_Redshift_connection()
-
-    sql = f"""
-        COPY {schema}.{table}
-        FROM 's3://{s3_bucket}/{s3_key}'
-        with credentials
-        IGNOREHEADER 1
-    """
-    try:
-        cur.execute(sql)
-        cur.execute("COMMIT;")
-    except Exception as e:
-        cur.execute("ROLLBACK;")
-        raise AirflowException(e)
-    # conn.commit()
-    cur.close()
-
-    # remove file
-    # os.remove(results)
-
-    logging.info('[END_TASK]_load_into_redshift')
 
 
 kst = pendulum.timezone("Asia/Seoul")
@@ -133,7 +90,8 @@ kst = pendulum.timezone("Asia/Seoul")
 default_args = {
     'owner': 'plerin',
     'retries': 1,
-    'retry_delay': timedelta(minutes=5)
+    'retry_delay': timedelta(minutes=5),
+    'on_failure_callback': on_failure
 }
 
 with DAG(
@@ -152,7 +110,8 @@ with DAG(
         bash_command='''cd /opt/airflow/sparkFiles/data;
         rm -rf ./*;
         kaggle datasets download -d heesoo37/120-years-of-olympic-history-athletes-and-results;
-        unzip 120-years-of-olympic-history-athletes-and-results.zip
+        unzip 120-years-of-olympic-history-athletes-and-results.zip;
+        rm -rf ./120-years-of-olympic-history-athletes-and-results.zip;
         '''
     )
 
@@ -176,7 +135,7 @@ with DAG(
         s3_bucket='kaggletl',
         s3_key='olympics/process/results.csv',
         schema='kaggle_data',
-        table='olympics_history_noc_regions',
+        table='summary_korea_medal',
         copy_options=["csv"],
         redshift_conn_id="redshift_dev_db",
         primary_key="",
@@ -192,7 +151,5 @@ with DAG(
     download_data >> load_raw_data_into_s3
     load_raw_data_into_s3 >> process_summary_table
     process_summary_table >> load_process_data_into_s3
-    # load_process_data_into_s3
     load_process_data_into_s3 >> copy_s3_to_redshift
     copy_s3_to_redshift >> endRun
-    # copy_olympics_noc_regions >> endRun
