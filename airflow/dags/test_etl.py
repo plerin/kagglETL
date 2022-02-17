@@ -8,7 +8,9 @@ from airflow.operators.bash import BashOperator
 
 from airflow.hooks.postgres_hook import PostgresHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-from plugins.s3_to_redshift_operator import S3ToRedshiftOperator
+
+from plugins.operators.s3_to_redshift_operator import S3ToRedshiftOperator
+from plugins.operators.data_quality import DataQualityOperator
 
 from plugins.alert_by_slack import on_failure
 from datetime import datetime, timedelta
@@ -47,6 +49,7 @@ extra
 
 
 s3_config = Variable.get("aws_s3_config", deserialize_json=True)
+input_path = '/opt/airflow/sparkFiles/data'
 
 
 def get_Redshift_connection():
@@ -59,9 +62,8 @@ def load_raw_data_into_s3(**context):
 
     hook = S3Hook()
     bucket = s3_config['bucket']
-    path = '/opt/airflow/sparkFiles/data'
 
-    for file_path in Path(path).glob("*.csv"):
+    for file_path in Path(input_path).glob("*.csv"):
         file_name = str(file_path).split('/')[-1]
         hook.load_file(file_path, 'olympics/raw/'+file_name,
                        bucket_name=bucket, replace=True)
@@ -74,7 +76,7 @@ def load_process_data_into_s3(**context):
 
     hook = S3Hook()
     bucket = s3_config['bucket']
-    result_path = '/opt/airflow/sparkFiles/data/results'
+    result_path = input_path + '/results'
 
     for file_path in Path(result_path).glob("*.csv"):
         logging.info(file_path)
@@ -89,7 +91,7 @@ kst = pendulum.timezone("Asia/Seoul")
 
 default_args = {
     'owner': 'plerin',
-    'retries': 1,
+    'retries': 3,
     'retry_delay': timedelta(minutes=5),
     'on_failure_callback': on_failure
 }
@@ -107,12 +109,12 @@ with DAG(
 
     download_data = BashOperator(
         task_id='download_data',
-        bash_command='''cd /opt/airflow/sparkFiles/data;
+        bash_command='''cd {path};
         rm -rf ./*;
         kaggle datasets download -d heesoo37/120-years-of-olympic-history-athletes-and-results;
         unzip 120-years-of-olympic-history-athletes-and-results.zip;
         rm -rf ./120-years-of-olympic-history-athletes-and-results.zip;
-        '''
+        '''.format(path=input_path)
     )
 
     load_raw_data_into_s3 = PythonOperator(
@@ -143,6 +145,11 @@ with DAG(
         truncate_table=True
     )
 
+    tables = ["kaggle_data.summary_korea_medal"]
+    check_data_quality = DataQualityOperator(task_id='check_data_quality',
+                                             redshift_conn_id="redshift_dev_db",
+                                             table_names=tables)
+
     endRun = DummyOperator(
         task_id='endRun',
         trigger_rule='none_failed_or_skipped'
@@ -152,4 +159,4 @@ with DAG(
     load_raw_data_into_s3 >> process_summary_table
     process_summary_table >> load_process_data_into_s3
     load_process_data_into_s3 >> copy_s3_to_redshift
-    copy_s3_to_redshift >> endRun
+    copy_s3_to_redshift >> check_data_quality >> endRun

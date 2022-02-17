@@ -51,5 +51,3 @@ korea_df.coalesce(1)\
 
 for file_path in Path(input_data_path).glob("*.csv"):
     os.remove(file_path)
-# delete the parsed data csv from the working directory
-# os.rmdir(result_path)

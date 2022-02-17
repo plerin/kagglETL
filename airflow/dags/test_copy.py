@@ -2,7 +2,7 @@ from airflow import DAG
 from airflow.models import Variable
 from airflow import AirflowException
 
-from plugins.s3_to_redshift_operator import S3ToRedshiftOperator
+from plugins.operators.s3_to_redshift_operator import S3ToRedshiftOperator
 # from airflow.providers.amazon.aws.transfers.s3_to_redshift import S3ToRedshiftOperator
 from airflow.hooks.postgres_hook import PostgresHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook

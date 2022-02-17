@@ -24,7 +24,7 @@ def connect_s3(**context):
     hook = S3Hook()
     bucket = s3_config['bucket']
 
-    obj = hook.get_key('20220101.json', bucket_name=bucket)
+    obj = hook.get_key('noc_regions.csv', bucket_name=bucket)
     logging.info(obj)
     logging.info('[END_TASK]_connect_s3')
     pass
@@ -35,7 +35,19 @@ def connect_redshift(**context):
 
     cur = get_Redshift_connection()
 
-    logging.info(cur)
+    # read by s3
+    hook = S3Hook()
+    bucket = s3_config['bucket']
+    data = []
+    for key in hook.list_keys(bucket, prefix='olympics/'):
+        logging.info(key)
+
+        data.append(hook.read_key(key=key, bucket_name=bucket))
+
+    for i in range(5):
+        logging.info(data[i])
+    logging.info(data[1][:100])
+    logging.info(data[2][:100])
 
     logging.info('[END_TASK]_connect_redshift')
     pass
@@ -65,9 +77,10 @@ with DAG(
         python_callable=connect_s3
     )
 
-    connect_redshift = PythonOperator(
-        task_id='connect_redshift',
-        python_callable=connect_redshift
-    )
+    # connect_redshift = PythonOperator(
+    #     task_id='connect_redshift',
+    #     python_callable=connect_redshift
+    # )
 
-    connect_s3 >> connect_redshift
+    connect_s3
+    # connect_s3 >> connect_redshift
