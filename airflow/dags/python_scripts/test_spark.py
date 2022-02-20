@@ -3,7 +3,7 @@ from pyspark.sql import SparkSession
 from pathlib import Path
 import os
 
-input_data_path = '/opt/airflow/sparkFiles/data'
+input_data_path = '/opt/airflow/data'
 event_path = input_data_path + '/athlete_events.csv'
 region_path = input_data_path + '/noc_regions.csv'
 

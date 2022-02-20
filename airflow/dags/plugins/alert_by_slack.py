@@ -5,12 +5,12 @@ from airflow.models import Variable
 import logging
 
 
-CONFIG_SLACK = Variable.get("slack_config", deserialize_json=True)
+config_slack = Variable.get("slack_config", deserialize_json=True)
 
 
 def on_failure(context):
-    channel = CONFIG_SLACK['channel']
-    token = CONFIG_SLACK['token_key']
+    channel = config_slack['channel']
+    token = config_slack['token_key']
 
     task_instance = context.get('task_instance')
     task_id = task_instance.task_id

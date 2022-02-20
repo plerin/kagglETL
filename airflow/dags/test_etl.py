@@ -23,33 +23,8 @@ from pathlib import Path
 import os
 import shutil
 
-'''
-ETL
-
-Extract
-- collect data(olympics) from kaggle api 
-- store into s3 _ origin data store in s3(datalake)
-
-Transform
-- call the task of bashoperator for processing data using pysparkSQL
-- write result data save in file format (where ? ) 
-- remove origin file
-
-Load
-- read data results in transform and load into s3
-- connect redshift 
-- copy from s3 to redshift
-- remove file
-
-extra
-1. connect slack when occurring error
-2. add task for making summary table 
-3. ...
-'''
-
-
 s3_config = Variable.get("aws_s3_config", deserialize_json=True)
-input_path = '/opt/airflow/sparkFiles/data'
+input_path = '/opt/airflow/data'
 
 
 def get_Redshift_connection():
@@ -124,7 +99,7 @@ with DAG(
 
     process_summary_table = BashOperator(
         task_id='process_summary_table',
-        bash_command='python /opt/airflow/sparkFiles/test_spark.py'
+        bash_command='python /opt/airflow/dags/python_scripts/test_spark.py'
     )
 
     load_process_data_into_s3 = PythonOperator(

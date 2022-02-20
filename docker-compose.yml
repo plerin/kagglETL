@@ -7,17 +7,17 @@ x-airflow-common:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
     AIRFLOW__CORE__FERNET_KEY: ''
-    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__DAGS_ARE_exPAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    AIRFLOW_CONN_AWS_DEFAULT: aws://?profile=aws-info&s3_config_file=/opt/airflow/creds/aws&s3_config_format=aws
+    AIRFLOW_CONN_AWS_DEFAULT: aws://?profile=default&s3_config_file=/home/airflow/.aws/credentials&s3_config_format=aws
   volumes:
-    - ./airflow/creds:/opt/airflow/creds
     - ./airflow/dags:/opt/airflow/dags
-    - ./sparkFiles:/opt/airflow/sparkFiles
+    - ./airflow/data:/opt/airflow/data
     - ./airflow/logs:/opt/airflow/logs
     - ./airflow/plugins:/opt/airflow/plugins
     - ./airflow/airflow.cfg:/opt/airlfow/airflow.cfg
-    - ./kaggle:/home/airflow/.kaggle
+    - ./creds/kaggle:/home/airflow/.kaggle
+    - ./creds/aws:/home/airflow/.aws
   user: "${AIRFLOW_UID:-50000}:${AIRFLOW_GID:-50000}"
   depends_on:
     postgres:

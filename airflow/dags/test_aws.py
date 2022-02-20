@@ -24,7 +24,7 @@ def connect_s3(**context):
     hook = S3Hook()
     bucket = s3_config['bucket']
 
-    obj = hook.get_key('noc_regions.csv', bucket_name=bucket)
+    obj = hook.get_key('olympics/noc_regions.csv', bucket_name=bucket)
     logging.info(obj)
     logging.info('[END_TASK]_connect_s3')
     pass
