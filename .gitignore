@@ -1,5 +1,6 @@
 .env
 __pycache__/
 
-creds/
+creds/aws/credentials
+creds/kaggle/kaggle.json
 airflow/logs/*
