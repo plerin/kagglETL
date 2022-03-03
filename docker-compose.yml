@@ -10,11 +10,11 @@ x-airflow-common:
     AIRFLOW__CORE__DAGS_ARE_exPAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW_CONN_AWS_DEFAULT: aws://?profile=default&s3_config_file=/home/airflow/.aws/credentials&s3_config_format=aws
+    AIRFLOW__WEBSERVER__SECRET_KEY: 'Drmhze6EPcv0fN_81Bj-nA'
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/data:/opt/airflow/data
     - ./airflow/logs:/opt/airflow/logs
-    - ./airflow/plugins:/opt/airflow/plugins
     - ./airflow/airflow.cfg:/opt/airlfow/airflow.cfg
     - ./creds/kaggle:/home/airflow/.kaggle
     - ./creds/aws:/home/airflow/.aws

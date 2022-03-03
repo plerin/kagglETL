@@ -4,8 +4,8 @@ from pathlib import Path
 import os
 
 input_data_path = '/opt/airflow/data'
-event_path = input_data_path + '/athlete_events.csv'
-region_path = input_data_path + '/noc_regions.csv'
+event_path = input_data_path + '/olympics/athlete_events.csv'
+region_path = input_data_path + '/olympics/noc_regions.csv'
 
 spark = SparkSession \
     .builder \
@@ -41,7 +41,7 @@ korea_df = spark.sql('''
     group by 1;
 ''')
 
-result_path = input_data_path + '/results'
+result_path = input_data_path + '/olympics/results'
 
 korea_df.coalesce(1)\
     .write.option("header", True)\
@@ -49,5 +49,5 @@ korea_df.coalesce(1)\
     .mode('overwrite')\
     .csv(result_path)
 
-for file_path in Path(input_data_path).glob("*.csv"):
-    os.remove(file_path)
+# for file_path in Path(input_data_path).glob("*.csv"):
+#     os.remove(file_path)

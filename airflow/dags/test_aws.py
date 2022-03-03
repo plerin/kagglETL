@@ -10,7 +10,7 @@ import pendulum
 import logging
 import json
 
-s3_config = Variable.get("aws_s3_config", deserialize_json=True)
+s3_config = Variable.get("s3_config", deserialize_json=True)
 
 
 def get_Redshift_connection():
@@ -22,7 +22,7 @@ def connect_s3(**context):
     logging.info('[START_TASK]_connect_s3')
 
     hook = S3Hook()
-    bucket = s3_config['bucket']
+    bucket = s3_config['s3_bucket']
 
     obj = hook.get_key('olympics/noc_regions.csv', bucket_name=bucket)
     logging.info(obj)

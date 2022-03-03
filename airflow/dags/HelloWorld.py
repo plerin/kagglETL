@@ -23,8 +23,6 @@ default_args = {
     'owner': 'plerin',
     'retries': 1,
     'retry_delay': timedelta(minutes=5)
-    # 'on_failure_callback': on_failure
-
 }
 
 with DAG(
