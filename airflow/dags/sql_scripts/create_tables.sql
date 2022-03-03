@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE SCHEMA IF NOT EXISTS olympics;
+DROP TABLE IF EXISTS olympics.korea_medal;
 
 CREATE TABLE IF NOT EXISTS olympics.korea_medal (
     sport VARCHAR(255),

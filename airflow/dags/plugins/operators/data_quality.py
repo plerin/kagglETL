@@ -25,8 +25,8 @@ class DataQualityOperator(BaseOperator):
                     "Data quality check failed. {} returned no results".format(table))
 
         dq_checks = [
-            {'table': 'kaggle_data.summary_korea_medal',
-             'check_sql': "SELECT COUNT(*) FROM kaggle_data.summary_korea_medal WHERE sport is null",
+            {'table': 'olympics.korea_medal',
+             'check_sql': "SELECT COUNT(*) FROM olympics.korea_medal WHERE sport is null",
              'expected_result': 0}
         ]
         for check in dq_checks:

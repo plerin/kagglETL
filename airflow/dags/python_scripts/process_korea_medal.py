@@ -1,6 +1,4 @@
 import sys
-import os
-from datetime import datetime
 from pyspark import SparkConf, SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (StructType, StructField as Fld,
